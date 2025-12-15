@@ -1,7 +1,14 @@
 """Configuration settings for the application."""
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
+# Load .env from api directory (works whether running from root or api directory)
+api_dir = Path(__file__).parent.parent
+env_path = api_dir / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# Also try loading from current directory (for backward compatibility)
 load_dotenv()
 
 

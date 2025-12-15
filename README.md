@@ -6,6 +6,7 @@ A full-stack web application for tracking cryptocurrency protocol attacks and ex
 
 - Real-time attack tracking across multiple protocols
 - Interactive dashboard with charts and visualizations
+- AI-powered chatbot for natural language queries about attacks
 - Automated data refresh (every 48 hours)
 - Multiple data sources: Rekt.news, DeFiYield, and SlowMist
 - CSV export for offline analysis
@@ -77,6 +78,48 @@ See [QUICKSTART.md](QUICKSTART.md) for a detailed setup guide.
 
 ### Backend Setup
 
+#### Option 1: Run from Project Root (Recommended)
+
+1. Create a virtual environment (from project root):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r api/requirements.txt
+   ```
+
+3. Create `.env` file in the `api` directory with your Supabase credentials:
+   ```bash
+   # Create api/.env file
+   cat > api/.env << EOF
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_anon_key
+   SUPABASE_SERVICE_KEY=your_service_key
+   FRONTEND_URL=http://localhost:5173
+   PORT=8000
+   ENVIRONMENT=development
+   EOF
+   ```
+
+   **Note:** If Supabase credentials are not provided, the backend will still run but return empty data. This is useful for testing the chatbot without a database.
+
+4. Run the development server from project root:
+   ```bash
+   python -m uvicorn main:app --reload
+   ```
+   
+   Or using uvicorn directly:
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+   The API will be available at `http://localhost:8000`
+
+#### Option 2: Run from API Directory
+
 1. Navigate to the API directory:
    ```bash
    cd api
@@ -93,7 +136,7 @@ See [QUICKSTART.md](QUICKSTART.md) for a detailed setup guide.
    pip install -r requirements.txt
    ```
 
-4. Create .env file with your Supabase credentials:
+4. Create `.env` file with your Supabase credentials:
    ```bash
    cat > .env << EOF
    SUPABASE_URL=your_supabase_url
@@ -172,6 +215,42 @@ See [QUICKSTART.md](QUICKSTART.md) for a detailed setup guide.
 - `POST /attacks/refresh` - Trigger manual data refresh (requires service key)
 - `GET /attacks/refresh/status` - Get refresh status
 
+**Note:** All endpoints are accessible at `http://localhost:8000/api/v1/attacks/*` and work even without Supabase credentials (returning empty data).
+
+## Chatbot
+
+The project includes an AI-powered chatbot that allows users to ask natural language questions about cryptocurrency attacks. The chatbot uses OpenAI to convert questions into API calls and provides formatted responses.
+
+### Running the Chatbot
+
+1. Install chatbot dependencies:
+   ```bash
+   pip install -r chatbot_requirements.txt
+   ```
+
+2. Set your OpenAI API key:
+   ```bash
+   export OPENAI_API_KEY=your_openai_api_key
+   ```
+   Or create a `.env` file in the project root:
+   ```
+   OPENAI_API_KEY=your_openai_api_key
+   ```
+
+3. Start the backend (required for chatbot to work):
+   ```bash
+   python -m uvicorn main:app --reload
+   ```
+
+4. Run the Streamlit chatbot:
+   ```bash
+   streamlit run chatbot.py
+   ```
+
+   The chatbot will be available at `http://localhost:8501`
+
+For detailed chatbot documentation, see [CHATBOT_README.md](CHATBOT_README.md).
+
 ## Data Refresh
 
 The application automatically refreshes data every 48 hours at 2 AM UTC. You can also trigger a manual refresh:
@@ -232,6 +311,10 @@ vercel deploy
 - [QUICKSTART.md](QUICKSTART.md) - Setup guide
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment instructions
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
+
+## Notes / Known Limitations
+
+If no attack data is present, the API returns an empty dataset and the chatbot responds accordingly. This is expected behavior when Supabase is not populated.
 
 ## License
 

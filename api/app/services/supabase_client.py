@@ -13,7 +13,18 @@ class SupabaseService:
         """Initialize Supabase client."""
         self.url = settings.SUPABASE_URL
         self.key = settings.SUPABASE_SERVICE_KEY
-        self.client: Client = create_client(self.url, self.key)
+        self.client: Optional[Client] = None
+        
+        # Only create client if credentials are provided
+        if self.url and self.key:
+            try:
+                self.client = create_client(self.url, self.key)
+            except Exception as e:
+                print(f"Warning: Failed to initialize Supabase client: {e}")
+                print("Backend will run with mock/empty data. Set SUPABASE_URL and SUPABASE_SERVICE_KEY to connect to database.")
+        else:
+            print("Warning: Supabase credentials not configured.")
+            print("Backend will run with mock/empty data. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file.")
     
     async def get_attacks(
         self,
@@ -25,6 +36,9 @@ class SupabaseService:
         attack_type: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get attacks with filters."""
+        if not self.client:
+            return {"data": [], "count": 0}
+        
         try:
             query = self.client.table("attacks").select("*", count="exact")
             
@@ -51,6 +65,13 @@ class SupabaseService:
     
     async def insert_attacks(self, attacks_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Bulk insert attacks with upsert logic."""
+        if not self.client:
+            return {
+                "success": False,
+                "error": "Supabase client not initialized. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.",
+                "records_inserted": 0
+            }
+        
         try:
             response = self.client.table("attacks").upsert(
                 attacks_data,
@@ -72,6 +93,17 @@ class SupabaseService:
     
     async def get_summary_stats(self) -> Dict[str, Any]:
         """Get summary statistics."""
+        if not self.client:
+            return {
+                "total_attacks": 0,
+                "total_losses_usd": 0,
+                "attacks_last_30_days": 0,
+                "losses_last_30_days": 0,
+                "average_loss_per_attack": 0,
+                "most_targeted_protocol": None,
+                "most_common_attack_type": None
+            }
+        
         try:
             # Get all attacks
             all_attacks = self.client.table("attacks").select("*").execute()
@@ -134,6 +166,9 @@ class SupabaseService:
         end_date: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get timeline data grouped by period."""
+        if not self.client:
+            return []
+        
         try:
             query = self.client.table("attacks").select("attack_date,loss_amount_usd")
             
@@ -180,6 +215,9 @@ class SupabaseService:
     
     async def get_protocol_breakdown(self) -> List[Dict[str, Any]]:
         """Get protocol breakdown statistics."""
+        if not self.client:
+            return []
+        
         try:
             response = self.client.table("attacks").select("protocol_name,loss_amount_usd").execute()
             
@@ -219,6 +257,9 @@ class SupabaseService:
     
     async def get_attack_type_breakdown(self) -> List[Dict[str, Any]]:
         """Get attack type breakdown statistics."""
+        if not self.client:
+            return []
+        
         try:
             response = self.client.table("attacks").select("attack_type,loss_amount_usd").execute()
             
@@ -258,6 +299,9 @@ class SupabaseService:
     
     async def get_top_attacks(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get top attacks by loss amount."""
+        if not self.client:
+            return []
+        
         try:
             response = self.client.table("attacks").select(
                 "protocol_name,attack_date,loss_amount_usd,attack_type,description,source_url"
@@ -276,6 +320,9 @@ class SupabaseService:
         error_message: Optional[str] = None
     ) -> Dict[str, Any]:
         """Log a data refresh operation."""
+        if not self.client:
+            return {}
+        
         try:
             log_data = {
                 "refresh_started_at": datetime.now().isoformat(),
@@ -294,6 +341,13 @@ class SupabaseService:
     
     async def get_last_refresh_status(self) -> Dict[str, Any]:
         """Get the status of the last refresh operation."""
+        if not self.client:
+            return {
+                "last_refresh": None,
+                "status": "never_run",
+                "records_fetched": None
+            }
+        
         try:
             response = self.client.table("refresh_logs").select("*").order(
                 "created_at", desc=True
