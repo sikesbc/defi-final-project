@@ -7,6 +7,7 @@ A full-stack web application for tracking cryptocurrency protocol attacks and ex
 - Real-time attack tracking across multiple protocols
 - Interactive dashboard with charts and visualizations
 - Automated data refresh (every 48 hours)
+- **NEW: Manual rekt.news scraping with LLM-powered data extraction**
 - Multiple data sources: Rekt.news, DeFiYield, and SlowMist
 - CSV export for offline analysis
 - Responsive design for desktop and mobile
@@ -26,6 +27,8 @@ A full-stack web application for tracking cryptocurrency protocol attacks and ex
 - Supabase PostgreSQL
 - Supabase Python Client
 - pandas for data processing
+- OpenAI API for LLM-powered data extraction
+- BeautifulSoup4 for web scraping
 
 ### Infrastructure
 - Supabase PostgreSQL database
@@ -93,17 +96,20 @@ See [QUICKSTART.md](QUICKSTART.md) for a detailed setup guide.
    pip install -r requirements.txt
    ```
 
-4. Create .env file with your Supabase credentials:
+4. Create .env file with your Supabase credentials and OpenAI API key:
    ```bash
    cat > .env << EOF
    SUPABASE_URL=your_supabase_url
    SUPABASE_ANON_KEY=your_anon_key
    SUPABASE_SERVICE_KEY=your_service_key
+   OPENAI_API_KEY=your_openai_api_key
    FRONTEND_URL=http://localhost:5173
    PORT=8000
    ENVIRONMENT=development
    EOF
    ```
+   
+   **Note:** The `OPENAI_API_KEY` is required for the rekt.news scraping feature. If not provided, the scraper will use basic processing without LLM enhancement.
 
 5. Run the development server:
    ```bash
@@ -170,6 +176,7 @@ See [QUICKSTART.md](QUICKSTART.md) for a detailed setup guide.
 - `GET /attacks/top` - Get top attacks by loss amount
 - `GET /attacks/export` - Export data to CSV
 - `POST /attacks/refresh` - Trigger manual data refresh (requires service key)
+- `POST /attacks/scrape-rekt` - Scrape rekt.news leaderboard and process with LLM
 - `GET /attacks/refresh/status` - Get refresh status
 
 ## Data Refresh
@@ -182,6 +189,20 @@ source venv/bin/activate
 python scripts/manual_refresh.py
 ```
 
+### Rekt.news Scraping
+
+The dashboard includes a "Scrape Rekt.news" button that:
+1. Scrapes the latest data from https://rekt.news/leaderboard
+2. Uses OpenAI's LLM to extract and structure attack information
+3. Automatically categorizes attack types and identifies blockchains
+4. Updates the database with new and updated records
+
+This feature requires an `OPENAI_API_KEY` in your backend `.env` file. The LLM processes the scraped data to extract:
+- Attack types (exploit, flash loan, reentrancy, etc.)
+- Blockchain networks
+- Detailed descriptions
+- Proper date formatting
+
 ## Environment Variables
 
 IMPORTANT: Never commit `.env` files or expose your `SUPABASE_SERVICE_KEY` in client-side code.
@@ -191,6 +212,7 @@ IMPORTANT: Never commit `.env` files or expose your `SUPABASE_SERVICE_KEY` in cl
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_KEY=your_service_key
+OPENAI_API_KEY=your_openai_api_key  # Required for rekt.news scraping
 FRONTEND_URL=http://localhost:5173
 PORT=8000
 ENVIRONMENT=development

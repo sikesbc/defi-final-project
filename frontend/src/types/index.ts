@@ -79,3 +79,9 @@ export interface RefreshStatusResponse {
   next_scheduled_refresh?: string;
 }
 
+export interface RefreshResponse {
+  status: string;
+  message: string;
+  job_id?: string;
+}
+

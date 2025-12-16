@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
+import { Chatbot } from './components/Chatbot';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,7 +16,12 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Dashboard />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/chat" element={<Chatbot />} />
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

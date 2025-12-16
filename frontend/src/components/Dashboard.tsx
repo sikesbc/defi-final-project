@@ -1,4 +1,5 @@
-import { AlertCircle, Shield, TrendingDown } from 'lucide-react';
+import { AlertCircle, Shield, TrendingDown, RefreshCw, MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SummaryStats } from './SummaryStats';
 import { AttackTimeline } from './AttackTimeline';
@@ -9,6 +10,7 @@ import { ExportButton } from './ExportButton';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Separator } from './ui/separator';
+import { useState } from 'react';
 import {
   useSummaryStats,
   useTimeline,
@@ -16,16 +18,75 @@ import {
   useAttackTypeBreakdown,
   useTopAttacks,
 } from '../hooks/useAttacks';
+import { isSupabaseConfigured } from '../services/supabase';
+import { attacksApi } from '../services/api';
 
 export const Dashboard: React.FC = () => {
-  const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useSummaryStats();
-  const { data: timelineData, isLoading: timelineLoading } = useTimeline({ granularity: 'month' });
-  const { data: protocolData, isLoading: protocolLoading } = useProtocolBreakdown();
-  const { data: attackTypeData } = useAttackTypeBreakdown();
-  const { data: topAttacksData } = useTopAttacks(10);
+  const { data: summaryData, isLoading: summaryLoading, error: summaryError, refetch: refetchSummary } = useSummaryStats();
+  const { data: timelineData, isLoading: timelineLoading, refetch: refetchTimeline } = useTimeline({ granularity: 'month' });
+  const { data: protocolData, isLoading: protocolLoading, refetch: refetchProtocol } = useProtocolBreakdown();
+  const { data: attackTypeData, refetch: refetchAttackType } = useAttackTypeBreakdown();
+  const { data: topAttacksData, refetch: refetchTopAttacks } = useTopAttacks(10);
+  const [scrapeMessage, setScrapeMessage] = useState<string | null>(null);
+  const [isScraping, setIsScraping] = useState(false);
 
   // Check if any critical data is loading
   const isLoading = summaryLoading || timelineLoading || protocolLoading;
+
+  // Check if Supabase is configured
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-8">
+        <Card className="max-w-md animate-fade-in">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+              <CardTitle>Configuration Error</CardTitle>
+            </div>
+            <CardDescription>
+              Supabase is not configured. Please create a <code className="text-xs bg-zinc-800 px-2 py-1 rounded">.env</code> file in the frontend directory with:
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-zinc-900 p-4 rounded-lg font-mono text-sm">
+              <div>VITE_SUPABASE_URL=your_supabase_url</div>
+              <div>VITE_SUPABASE_ANON_KEY=your_anon_key</div>
+            </div>
+            <Button 
+              onClick={() => window.location.reload()}
+              className="w-full"
+              size="lg"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleScrapeRekt = async () => {
+    setIsScraping(true);
+    setScrapeMessage('Starting web scraping... This may take a few minutes as we extract content from article pages.');
+    try {
+      const result = await attacksApi.scrapeRektLeaderboard();
+      setScrapeMessage(result.message);
+      // Refetch all data to show updated information
+      await Promise.all([
+        refetchSummary(),
+        refetchTimeline(),
+        refetchProtocol(),
+        refetchAttackType(),
+        refetchTopAttacks(),
+      ]);
+      // Clear message after 10 seconds (longer for success message)
+      setTimeout(() => setScrapeMessage(null), 10000);
+    } catch (error: any) {
+      setScrapeMessage(error.message || 'Failed to scrape rekt.news. This may take several minutes - please try again.');
+    } finally {
+      setIsScraping(false);
+    }
+  };
 
   // Check for errors
   if (summaryError) {
@@ -82,13 +143,55 @@ export const Dashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-            <ExportButton />
+            <div className="flex items-center gap-3">
+              <Link to="/chat">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-50"
+                  title="Ask questions about the attack data using AI"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Ask Questions
+                </Button>
+              </Link>
+              <Button
+                onClick={handleScrapeRekt}
+                disabled={isScraping}
+                variant="outline"
+                size="lg"
+                className="bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-50"
+                title="Scrape rekt.news leaderboard and extract detailed content from article pages (may take a few minutes)"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isScraping ? 'animate-spin' : ''}`} />
+                {isScraping ? 'Scraping Articles...' : 'Refresh Attack Data via Web-Scraping'}
+              </Button>
+              <ExportButton />
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8 space-y-8">
+        {/* Scrape Status Message */}
+        {scrapeMessage && (
+          <div className="animate-fade-in">
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="pt-6">
+                <div className={`flex items-center gap-3 ${scrapeMessage.includes('Successfully') ? 'text-green-400' : 'text-red-400'}`}>
+                  {scrapeMessage.includes('Successfully') ? (
+                    <AlertCircle className="w-5 h-5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5" />
+                  )}
+                  <p className="text-sm font-medium">{scrapeMessage}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Summary Stats */}
         {summaryData && (
           <div className="animate-fade-in">
